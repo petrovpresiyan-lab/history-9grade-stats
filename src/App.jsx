@@ -14,7 +14,8 @@ import {
   Award,
   RotateCcw,
   HelpCircle,
-  Sparkles
+  Sparkles,
+  PenLine
 } from 'lucide-react';
 
 const STEAM_DATA = [
@@ -27,10 +28,10 @@ const STEAM_DATA = [
 ];
 
 const PIG_IRON_DATA = [
-  { id: 'uk', country: 'Великобритания', y1830: 680, y1840: 1400, y1850: 2250, diff: 1570, mult: '3,3 пъти' },
-  { id: 'de', country: 'Германия', y1830: 120, y1840: 165, y1850: 210, diff: 90, mult: '1,75 пъти' },
-  { id: 'fr', country: 'Франция', y1830: 225, y1840: 405, y1850: 405, diff: 180, mult: '1,8 пъти' },
-  { id: 'us', country: 'САЩ', y1830: 180, y1840: 290, y1850: 565, diff: 385, mult: '3,14 пъти' },
+  { id: 'uk', country: 'Великобритания', y1830: 680, y1840: 1400, y1850: 2250, diff: 1570 },
+  { id: 'de', country: 'Германия', y1830: 120, y1840: 165, y1850: 210, diff: 90 },
+  { id: 'fr', country: 'Франция', y1830: 225, y1840: 405, y1850: 405, diff: 180 },
+  { id: 'us', country: 'САЩ', y1830: 180, y1840: 290, y1850: 565, diff: 385 },
 ];
 
 const RAIL_ABS_DATA = [
@@ -75,22 +76,18 @@ const INITIAL_STATE = {
   m1_unit: '',
   m1_leader: '',
   m1_jump: '',
-  m1_russia_choice: '',
   m1_russia: '',
   m2_uk: '',
   m2_de: '',
   m2_fr: '',
   m2_us: '',
-  m2_connection_choice: '',
   m2_connection: '',
   m3_uk_km: '',
   m3_overtake: [],
-  m3_paradox_choice: '',
   m3_paradox: '',
   m3_continent: '',
   m4_grow: [],
   m4_drop: '',
-  m4_compare_choice: '',
   m4_compare: '',
   m4_q1: '',
   m4_q2: '',
@@ -104,7 +101,7 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [answers, setAnswers] = useState(() => {
     try {
-      const saved = localStorage.getItem('history_9grade_worksheet_v2');
+      const saved = localStorage.getItem('history_9grade_worksheet_v3');
       return saved ? { ...INITIAL_STATE, ...JSON.parse(saved) } : INITIAL_STATE;
     } catch {
       return INITIAL_STATE;
@@ -113,7 +110,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('history_9grade_worksheet_v2', JSON.stringify(answers));
+      localStorage.setItem('history_9grade_worksheet_v3', JSON.stringify(answers));
     } catch {
       // ignore storage errors
     }
@@ -138,7 +135,7 @@ export default function App() {
       setAnswers(INITIAL_STATE);
       setSubmitted(false);
       setStep(0);
-      localStorage.removeItem('history_9grade_worksheet_v2');
+      localStorage.removeItem('history_9grade_worksheet_v3');
     }
   };
 
@@ -148,13 +145,11 @@ export default function App() {
     if (answers.m1_unit === 'abs_hp') pts += 1;
     if (answers.m1_leader === 'uk') pts += 1;
     if (answers.m1_jump === 'de') pts += 1;
-    if (answers.m1_russia_choice === 'serfdom') pts += 1;
 
     if (Number(answers.m2_uk) === 1570) pts += 1;
     if (Number(answers.m2_de) === 90) pts += 1;
     if (Number(answers.m2_fr) === 180) pts += 1;
     if (Number(answers.m2_us) === 385) pts += 1;
-    if (answers.m2_connection_choice === 'mutual') pts += 1;
 
     const cleanKm = String(answers.m3_uk_km).replace(/\s+/g, '');
     if (cleanKm === '27689') pts += 1;
@@ -166,7 +161,6 @@ export default function App() {
     if (hasAllOvertake) pts += 2;
 
     if (answers.m3_continent === 'na') pts += 1;
-    if (answers.m3_paradox_choice === 'island_world') pts += 1;
 
     const hasGrow =
       answers.m4_grow.length === 2 &&
@@ -175,9 +169,8 @@ export default function App() {
     if (hasGrow) pts += 2;
 
     if (answers.m4_drop === 'fr') pts += 1;
-    if (answers.m4_compare_choice === 'diff_causes') pts += 1;
 
-    return pts; // Max 19 auto-graded points
+    return pts; // Max 15 auto-graded points + 5 open-ended teacher points = 20 pts
   };
 
   const generateReportText = () => {
@@ -185,28 +178,28 @@ export default function App() {
     return [
       `РАБОТЕН ЛИСТ: Анализ на статистически данни в историята (9. клас)`,
       `Ученик: ${answers.studentName || 'Непопълнено'} | Клас: ${answers.studentClass} | №: ${answers.studentNum || '-'}`,
-      `Резултат от затворените задачи: ${autoPts} / 19 т.`,
+      `Автоматично проверени задачи: ${autoPts} / 15 т. (+ до 5 т. за писмените анализи)`,
       `----------------------------------------`,
       `МОДУЛ 1 (Парни машини):`,
       `• Период: ${answers.m1_period === '1840-1888' ? '1840–1888 г. (Вярно)' : 'Неточно'} | Единица: ${answers.m1_unit === 'abs_hp' ? 'Абсолютни числа (хил. к.с.) (Вярно)' : 'Неточно'}`,
       `• Лидер до 60-те г.: ${answers.m1_leader === 'uk' ? 'Великобритания' : '-'} | Скок след 1870 г.: ${answers.m1_jump === 'de' ? 'Германия' : '-'}`,
-      `• Изоставане на Русия (избор): ${answers.m1_russia_choice === 'serfdom' ? 'Вярно' : 'Неточно'} | Коментар: ${answers.m1_russia || '(няма)'}`,
+      `• Писмен отговор (изоставане на Русия): ${answers.m1_russia || '(няма отговор)'}`,
       `----------------------------------------`,
       `МОДУЛ 2 (Производство на чугун):`,
       `• Изчисления (хил. т): ВБ=${answers.m2_uk || '-'} (1570), Гер=${answers.m2_de || '-'} (90), Фр=${answers.m2_fr || '-'} (180), САЩ=${answers.m2_us || '-'} (385)`,
-      `• Причинно-следствена връзка (избор): ${answers.m2_connection_choice === 'mutual' ? 'Вярно' : 'Неточно'} | Коментар: ${answers.m2_connection || '(няма)'}`,
+      `• Писмен отговор (връзка парна машина – чугун): ${answers.m2_connection || '(няма отговор)'}`,
       `----------------------------------------`,
       `МОДУЛ 3 (Железопътна мрежа):`,
       `• Ръст във ВБ: ${answers.m3_uk_km || '-'} км (вярно: 27 689)`,
       `• Изпреварват ВБ до 1900 г.: ${answers.m3_overtake.join(', ') || '-'}`,
       `• Континент лидер: ${answers.m3_continent === 'na' ? 'Северна Америка' : '-'}`,
-      `• Парадокс км vs % (избор): ${answers.m3_paradox_choice === 'island_world' ? 'Вярно' : 'Неточно'} | Коментар: ${answers.m3_paradox || '(няма)'}`,
+      `• Писмен отговор (парадокс км vs %): ${answers.m3_paradox || '(няма отговор)'}`,
       `----------------------------------------`,
       `МОДУЛ 4 (Население 1800–1850 г.):`,
       `• Ръст на относителния дял: ${answers.m4_grow.join(', ') || '-'} | Най-голям спад: ${answers.m4_drop === 'fr' ? 'Франция' : '-'}`,
-      `• Сравнение ВБ и Русия (избор): ${answers.m4_compare_choice === 'diff_causes' ? 'Вярно' : 'Неточно'} | Коментар: ${answers.m4_compare || '(няма)'}`,
-      `• Собствен въпрос 1: ${answers.m4_q1 || '(няма)'}`,
-      `• Собствен въпрос 2: ${answers.m4_q2 || '(няма)'}`,
+      `• Писмен отговор (сравнение ВБ и Русия): ${answers.m4_compare || '(няма отговор)'}`,
+      `• Собствен въпрос 1: ${answers.m4_q1 || '(няма отговор)'}`,
+      `• Собствен въпрос 2: ${answers.m4_q2 || '(няма отговор)'}`,
     ].join('\n');
   };
 
@@ -520,31 +513,17 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-800">
-                  5. Коя е основната причина Русия да изостава в прилагането на парната енергия?
+              <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-200/80 space-y-2">
+                <label className="block text-sm font-semibold text-slate-900 flex items-center gap-1.5">
+                  <PenLine className="w-4 h-4 text-blue-600 shrink-0" />
+                  5. Писмен анализ: Защо Русия бележи сравнително нисък ръст при парната енергия през целия период?
                 </label>
-                <div className="grid grid-cols-1 gap-2">
-                  {[
-                    { id: 'resources', text: 'Липса на полезни изкопаеми и суровини в страната' },
-                    { id: 'serfdom', text: 'Запазването на крепостното право до 1861 г. и аграрният характер на икономиката' },
-                    { id: 'population', text: 'Прекалено малобройно население и липса на територия' },
-                  ].map((opt) => (
-                    <OptionButton
-                      key={opt.id}
-                      active={answers.m1_russia_choice === opt.id}
-                      onClick={() => updateField('m1_russia_choice', opt.id)}
-                    >
-                      {opt.text}
-                    </OptionButton>
-                  ))}
-                </div>
                 <textarea
-                  rows={2}
-                  placeholder="Допълнете със свои думи (по желание)..."
+                  rows={4}
+                  placeholder="Напишете своя отговор тук (посочете поне 2 исторически причини – социален строй, работна ръка, пазар)..."
                   value={answers.m1_russia}
                   onChange={(e) => updateField('m1_russia', e.target.value)}
-                  className="w-full mt-2 p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  className="w-full p-3 rounded-xl border border-blue-300 bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                 />
               </div>
             </div>
@@ -589,7 +568,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-5">
               <div className="flex items-center gap-2">
                 <Calculator className="w-5 h-5 text-blue-600" />
                 <h3 className="font-bold text-slate-900">
@@ -630,31 +609,17 @@ export default function App() {
                 })}
               </div>
 
-              <div className="space-y-2 pt-2">
-                <label className="block text-sm font-semibold text-slate-800">
-                  2. Каква е причинно-следствената връзка между парните машини (Задача 1) и чугуна (Задача 2)?
+              <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-200/80 space-y-2">
+                <label className="block text-sm font-semibold text-slate-900 flex items-center gap-1.5">
+                  <PenLine className="w-4 h-4 text-blue-600 shrink-0" />
+                  2. Писмен анализ: Установете причинно-следствената връзка между използването на парната машина (Задача 1) и производството на чугун (Задача 2):
                 </label>
-                <div className="grid grid-cols-1 gap-2">
-                  {[
-                    { id: 'no_rel', text: 'Няма пряка връзка — двата отрасъла се развиват независимо' },
-                    { id: 'mutual', text: 'Парните машини се изработват от чугун/желязо и задвижват мините и пещите, а жп строителството увеличава търсенето на метал' },
-                    { id: 'replace', text: 'Чугунът напълно заменя парните машини в транспорта' },
-                  ].map((opt) => (
-                    <OptionButton
-                      key={opt.id}
-                      active={answers.m2_connection_choice === opt.id}
-                      onClick={() => updateField('m2_connection_choice', opt.id)}
-                    >
-                      {opt.text}
-                    </OptionButton>
-                  ))}
-                </div>
                 <textarea
-                  rows={2}
-                  placeholder="Допълнете анализа си (по желание)..."
+                  rows={4}
+                  placeholder="Напишете своя отговор тук (обяснете как парните машини и металургията взаимно се стимулират)..."
                   value={answers.m2_connection}
                   onChange={(e) => updateField('m2_connection', e.target.value)}
-                  className="w-full mt-2 p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  className="w-full p-3 rounded-xl border border-blue-300 bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                 />
               </div>
             </div>
@@ -799,31 +764,17 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-800">
-                  4. В Таблица 1 жп линиите на Великобритания растат над 12 пъти, но в Таблица 2 делът ѝ пада от 27% на 4%. Защо?
+              <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-200/80 space-y-2">
+                <label className="block text-sm font-semibold text-slate-900 flex items-center gap-1.5">
+                  <PenLine className="w-4 h-4 text-blue-600 shrink-0" />
+                  4. Писмено сравнение: В Таблица 1 жп линиите на Великобритания растат над 12 пъти, но в Таблица 2 делът ѝ пада от 27% на 4%. Изяснете причините за това:
                 </label>
-                <div className="grid grid-cols-1 gap-2">
-                  {[
-                    { id: 'destroyed', text: 'Великобритания разрушава част от своите жп линии след 1880 г.' },
-                    { id: 'island_world', text: 'Като малка островна държава тя насища територията си, докато континентални държави строят хиляди километри линии и променят световния дял' },
-                    { id: 'error', text: 'Данните в двете таблици си противоречат заради грешка в измерването' },
-                  ].map((opt) => (
-                    <OptionButton
-                      key={opt.id}
-                      active={answers.m3_paradox_choice === opt.id}
-                      onClick={() => updateField('m3_paradox_choice', opt.id)}
-                    >
-                      {opt.text}
-                    </OptionButton>
-                  ))}
-                </div>
                 <textarea
-                  rows={2}
-                  placeholder="Допълнете обяснението си (по желание)..."
+                  rows={4}
+                  placeholder="Напишете своя отговор тук (помислете за площта на острова и строителството в останалия свят)..."
                   value={answers.m3_paradox}
                   onChange={(e) => updateField('m3_paradox', e.target.value)}
-                  className="w-full mt-2 p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  className="w-full p-3 rounded-xl border border-blue-300 bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                 />
               </div>
             </div>
@@ -911,36 +862,23 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-800">
-                  3. Еднакви ли са причините за ръста на населението във Великобритания и в Русия?
+              <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-200/80 space-y-2">
+                <label className="block text-sm font-semibold text-slate-900 flex items-center gap-1.5">
+                  <PenLine className="w-4 h-4 text-blue-600 shrink-0" />
+                  3. Писмен анализ: Еднакви ли са причините за ръста на населението във Великобритания и в Русия от гледна точка на индустриализацията? Обосновете се:
                 </label>
-                <div className="grid grid-cols-1 gap-2">
-                  {[
-                    { id: 'same_ind', text: 'Да — и в двете държави ръстът е резултат от бурна индустриализация' },
-                    { id: 'diff_causes', text: 'Не — във Великобритания се дължи на индустриализацията и спада на смъртността, а в Русия — на високата раждаемост в аграрното общество' },
-                  ].map((opt) => (
-                    <OptionButton
-                      key={opt.id}
-                      active={answers.m4_compare_choice === opt.id}
-                      onClick={() => updateField('m4_compare_choice', opt.id)}
-                    >
-                      {opt.text}
-                    </OptionButton>
-                  ))}
-                </div>
                 <textarea
-                  rows={2}
-                  placeholder="Допълнете коментара си (по желание)..."
+                  rows={4}
+                  placeholder="Напишете своя отговор тук (сравнете индустриална Великобритания и аграрна Русия)..."
                   value={answers.m4_compare}
                   onChange={(e) => updateField('m4_compare', e.target.value)}
-                  className="w-full mt-2 p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  className="w-full p-3 rounded-xl border border-blue-300 bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                 />
               </div>
 
               <div className="space-y-2 pt-2 border-t border-slate-100">
                 <label className="block text-sm font-semibold text-slate-800 flex items-center gap-1.5">
-                  <HelpCircle className="w-4 h-4 text-blue-600" />
+                  <HelpCircle className="w-4 h-4 text-blue-600 shrink-0" />
                   4. Съставете самостоятелно два опорни въпроса към таблицата:
                 </label>
                 <input
@@ -992,32 +930,32 @@ export default function App() {
                         Резултат от затворените задачи
                       </div>
                       <div className="text-2xl font-extrabold text-emerald-900">
-                        {calculateAutoScore()} / 19 точки
+                        {calculateAutoScore()} / 15 точки
                       </div>
                       <div className="text-xs text-emerald-700 mt-0.5">
-                        + допълнителни точки от учителя за формулираните въпроси
+                        + до 5 точки от учителя за писмените анализи (общо 20 т.)
                       </div>
                     </div>
                   </div>
 
                   <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-3 text-xs sm:text-sm">
                     <h3 className="font-bold text-slate-900">
-                      Еталонни насоки за анализите:
+                      Еталонни насоки за проверка на писмените отговори:
                     </h3>
                     <div>
-                      <strong className="text-blue-800">• Изоставане на Русия (Модул 1):</strong>{' '}
+                      <strong className="text-blue-800">• 1.5 Изоставане на Русия:</strong>{' '}
                       Късна отмяна на крепостното право (1861 г.), липса на свободна работна ръка, слаб вътрешен пазар и аграрен характер на икономиката.
                     </div>
                     <div>
-                      <strong className="text-blue-800">• Връзка парна машина – чугун (Модул 2):</strong>{' '}
+                      <strong className="text-blue-800">• 2.2 Връзка парна машина – чугун:</strong>{' '}
                       Парните машини се изработват от чугун/желязо и задвижват мините и пещите; същевременно бумът на жп линиите изисква огромни количества метал.
                     </div>
                     <div>
-                      <strong className="text-blue-800">• Парадоксът на Великобритания (Модул 3):</strong>{' '}
+                      <strong className="text-blue-800">• 3.4 Парадоксът на Великобритания:</strong>{' '}
                       Като малка островна държава тя бързо насища територията си с линии, докато континентални гиганти (САЩ, Русия, Германия) строят хиляди километри магистрали и променят световния дял.
                     </div>
                     <div>
-                      <strong className="text-blue-800">• Население ВБ срещу Русия (Модул 4):</strong>{' '}
+                      <strong className="text-blue-800">• 4.3 Население ВБ срещу Русия:</strong>{' '}
                       Във Великобритания ръстът е следствие от индустриализацията, урбанизацията и по-ниската смъртност; в Русия – от високата раждаемост в традиционното аграрно общество.
                     </div>
                   </div>
