@@ -15,7 +15,8 @@ import {
   RotateCcw,
   HelpCircle,
   Sparkles,
-  PenLine
+  PenLine,
+  XCircle
 } from 'lucide-react';
 
 const STEAM_DATA = [
@@ -93,6 +94,23 @@ const INITIAL_STATE = {
   m4_q2: '',
 };
 
+// Автоматично оценяване на отворени отговори по ключови исторически понятия (0, 1 или 2 т.)
+function scoreOpenText(text, keywordGroups, minLength = 25) {
+  const clean = (text || '').toLowerCase().trim();
+  if (clean.length < minLength) return 0;
+
+  let matchedGroups = 0;
+  for (const group of keywordGroups) {
+    if (group.some((kw) => clean.includes(kw))) {
+      matchedGroups += 1;
+    }
+  }
+
+  if (matchedGroups >= 2) return 2;
+  if (matchedGroups === 1) return 1;
+  return 0;
+}
+
 export default function App() {
   const [step, setStep] = useState(0);
   const [selectedYear, setSelectedYear] = useState('1880');
@@ -101,7 +119,7 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [answers, setAnswers] = useState(() => {
     try {
-      const saved = localStorage.getItem('history_9grade_worksheet_v3');
+      const saved = localStorage.getItem('history_9grade_worksheet_graded');
       return saved ? { ...INITIAL_STATE, ...JSON.parse(saved) } : INITIAL_STATE;
     } catch {
       return INITIAL_STATE;
@@ -110,7 +128,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('history_9grade_worksheet_v3', JSON.stringify(answers));
+      localStorage.setItem('history_9grade_worksheet_graded', JSON.stringify(answers));
     } catch {
       // ignore storage errors
     }
@@ -135,71 +153,142 @@ export default function App() {
       setAnswers(INITIAL_STATE);
       setSubmitted(false);
       setStep(0);
-      localStorage.removeItem('history_9grade_worksheet_v3');
+      localStorage.removeItem('history_9grade_worksheet_graded');
     }
   };
 
-  const calculateAutoScore = () => {
-    let pts = 0;
-    if (answers.m1_period === '1840-1888') pts += 1;
-    if (answers.m1_unit === 'abs_hp') pts += 1;
-    if (answers.m1_leader === 'uk') pts += 1;
-    if (answers.m1_jump === 'de') pts += 1;
+  const evaluateFullTest = () => {
+    // 1. Затворени задачи (макс. 15 т.)
+    let closedPts = 0;
+    const checks = {
+      m1_period: answers.m1_period === '1840-1888',
+      m1_unit: answers.m1_unit === 'abs_hp',
+      m1_leader: answers.m1_leader === 'uk',
+      m1_jump: answers.m1_jump === 'de',
+      m2_uk: Number(answers.m2_uk) === 1570,
+      m2_de: Number(answers.m2_de) === 90,
+      m2_fr: Number(answers.m2_fr) === 180,
+      m2_us: Number(answers.m2_us) === 385,
+      m3_uk_km: String(answers.m3_uk_km).replace(/\s+/g, '') === '27689',
+      m3_overtake:
+        answers.m3_overtake.length === 4 &&
+        ['Германия', 'Русия', 'Франция', 'Австрия'].every((c) =>
+          answers.m3_overtake.includes(c)
+        ),
+      m3_continent: answers.m3_continent === 'na',
+      m4_grow:
+        answers.m4_grow.length === 2 &&
+        answers.m4_grow.includes('Британски о-ви') &&
+        answers.m4_grow.includes('Русия'),
+      m4_drop: answers.m4_drop === 'fr',
+    };
 
-    if (Number(answers.m2_uk) === 1570) pts += 1;
-    if (Number(answers.m2_de) === 90) pts += 1;
-    if (Number(answers.m2_fr) === 180) pts += 1;
-    if (Number(answers.m2_us) === 385) pts += 1;
+    if (checks.m1_period) closedPts += 1;
+    if (checks.m1_unit) closedPts += 1;
+    if (checks.m1_leader) closedPts += 1;
+    if (checks.m1_jump) closedPts += 1;
+    if (checks.m2_uk) closedPts += 1;
+    if (checks.m2_de) closedPts += 1;
+    if (checks.m2_fr) closedPts += 1;
+    if (checks.m2_us) closedPts += 1;
+    if (checks.m3_uk_km) closedPts += 1;
+    if (checks.m3_overtake) closedPts += 2;
+    if (checks.m3_continent) closedPts += 1;
+    if (checks.m4_grow) closedPts += 2;
+    if (checks.m4_drop) closedPts += 1;
 
-    const cleanKm = String(answers.m3_uk_km).replace(/\s+/g, '');
-    if (cleanKm === '27689') pts += 1;
+    // 2. Отворени задачи (макс. 9 т.: 4x2 т. + 1 т. за двата въпроса)
+    const open_1_5 = scoreOpenText(answers.m1_russia, [
+      ['крепостн', '1861', 'селяни', 'феодал', 'свободна работна'],
+      ['аграр', 'земедел', 'пазар', 'изостанал', 'капитал', 'индустри'],
+    ]);
 
-    const correctOvertake = ['Германия', 'Русия', 'Франция', 'Австрия'];
-    const hasAllOvertake =
-      answers.m3_overtake.length === 4 &&
-      correctOvertake.every((c) => answers.m3_overtake.includes(c));
-    if (hasAllOvertake) pts += 2;
+    const open_2_2 = scoreOpenText(answers.m2_connection, [
+      ['машин', 'изработ', 'метал', 'желяз', 'пещ', 'мин'],
+      ['жп', 'железниц', 'релс', 'търсен', 'суровин', 'стимулир', 'връзк'],
+    ]);
 
-    if (answers.m3_continent === 'na') pts += 1;
+    const open_3_4 = scoreOpenText(answers.m3_paradox, [
+      ['остров', 'територи', 'площ', 'малка', 'насищ', 'завърш'],
+      ['свят', 'световн', 'сащ', 'русия', 'германия', 'континент', 'другите държави', 'повече'],
+    ]);
 
-    const hasGrow =
-      answers.m4_grow.length === 2 &&
-      answers.m4_grow.includes('Британски о-ви') &&
-      answers.m4_grow.includes('Русия');
-    if (hasGrow) pts += 2;
+    const open_4_3 = scoreOpenText(answers.m4_compare, [
+      ['не', 'различн', 'индустриал', 'урбанизац', 'смъртност', 'жизнен стандарт'],
+      ['раждаемост', 'аграр', 'селск', 'традицион', 'територи', 'патриархал'],
+    ]);
 
-    if (answers.m4_drop === 'fr') pts += 1;
+    const q1Valid = (answers.m4_q1 || '').trim().length >= 12;
+    const q2Valid = (answers.m4_q2 || '').trim().length >= 12;
+    const open_4_4 = q1Valid && q2Valid ? 1 : 0;
 
-    return pts; // Max 15 auto-graded points + 5 open-ended teacher points = 20 pts
+    const openPts = open_1_5 + open_2_2 + open_3_4 + open_4_3 + open_4_4;
+    const totalPts = closedPts + openPts; // макс. 24 точки
+
+    // Изчисляване на оценка по шестобалната система (2.00 - 6.00)
+    // 0-7 т. -> Слаб 2; 8-24 т. -> линейно от 3.00 до 6.00
+    let exactGrade = 2.0;
+    if (totalPts >= 8) {
+      exactGrade = 3.0 + ((totalPts - 8) / 16) * 3.0;
+    }
+    const roundedGrade = Math.min(6, Math.max(2, Math.round(exactGrade)));
+
+    let label = 'Слаб';
+    let badgeColor = 'bg-rose-100 text-rose-800 border-rose-300';
+    if (roundedGrade === 6) {
+      label = 'Отличен';
+      badgeColor = 'bg-emerald-100 text-emerald-900 border-emerald-300';
+    } else if (roundedGrade === 5) {
+      label = 'Много добър';
+      badgeColor = 'bg-blue-100 text-blue-900 border-blue-300';
+    } else if (roundedGrade === 4) {
+      label = 'Добър';
+      badgeColor = 'bg-amber-100 text-amber-900 border-amber-300';
+    } else if (roundedGrade === 3) {
+      label = 'Среден';
+      badgeColor = 'bg-orange-100 text-orange-900 border-orange-300';
+    }
+
+    return {
+      closedPts,
+      openPts,
+      totalPts,
+      maxPts: 24,
+      exactGrade: exactGrade.toFixed(2).replace('.', ','),
+      roundedGrade,
+      label,
+      badgeColor,
+      checks,
+      openScores: { open_1_5, open_2_2, open_3_4, open_4_3, open_4_4 },
+    };
   };
 
   const generateReportText = () => {
-    const autoPts = calculateAutoScore();
+    const res = evaluateFullTest();
     return [
       `РАБОТЕН ЛИСТ: Анализ на статистически данни в историята (9. клас)`,
       `Ученик: ${answers.studentName || 'Непопълнено'} | Клас: ${answers.studentClass} | №: ${answers.studentNum || '-'}`,
-      `Автоматично проверени задачи: ${autoPts} / 15 т. (+ до 5 т. за писмените анализи)`,
+      `ОЦЕНКА: ${res.label} ${res.roundedGrade} (${res.exactGrade}) | Общ резултат: ${res.totalPts} / ${res.maxPts} т. (Затворени: ${res.closedPts}/15 т., Писмени: ${res.openPts}/9 т.)`,
       `----------------------------------------`,
       `МОДУЛ 1 (Парни машини):`,
-      `• Период: ${answers.m1_period === '1840-1888' ? '1840–1888 г. (Вярно)' : 'Неточно'} | Единица: ${answers.m1_unit === 'abs_hp' ? 'Абсолютни числа (хил. к.с.) (Вярно)' : 'Неточно'}`,
-      `• Лидер до 60-те г.: ${answers.m1_leader === 'uk' ? 'Великобритания' : '-'} | Скок след 1870 г.: ${answers.m1_jump === 'de' ? 'Германия' : '-'}`,
-      `• Писмен отговор (изоставане на Русия): ${answers.m1_russia || '(няма отговор)'}`,
+      `• Период: ${res.checks.m1_period ? 'Вярно (1 т.)' : 'Грешно (0 т.)'} | Мерна единица: ${res.checks.m1_unit ? 'Вярно (1 т.)' : 'Грешно (0 т.)'}`,
+      `• Лидер до 60-те г.: ${res.checks.m1_leader ? 'Вярно (1 т.)' : 'Грешно (0 т.)'} | Скок след 1870 г.: ${res.checks.m1_jump ? 'Вярно (1 т.)' : 'Грешно (0 т.)'}`,
+      `• 1.5 Писмен отговор (${res.openScores.open_1_5}/2 т.): ${answers.m1_russia || '(няма отговор)'}`,
       `----------------------------------------`,
       `МОДУЛ 2 (Производство на чугун):`,
-      `• Изчисления (хил. т): ВБ=${answers.m2_uk || '-'} (1570), Гер=${answers.m2_de || '-'} (90), Фр=${answers.m2_fr || '-'} (180), САЩ=${answers.m2_us || '-'} (385)`,
-      `• Писмен отговор (връзка парна машина – чугун): ${answers.m2_connection || '(няма отговор)'}`,
+      `• Изчисления: ВБ=${answers.m2_uk || '-'} (${res.checks.m2_uk ? '1т' : '0т'}), Гер=${answers.m2_de || '-'} (${res.checks.m2_de ? '1т' : '0т'}), Фр=${answers.m2_fr || '-'} (${res.checks.m2_fr ? '1т' : '0т'}), САЩ=${answers.m2_us || '-'} (${res.checks.m2_us ? '1т' : '0т'})`,
+      `• 2.2 Писмен отговор (${res.openScores.open_2_2}/2 т.): ${answers.m2_connection || '(няма отговор)'}`,
       `----------------------------------------`,
       `МОДУЛ 3 (Железопътна мрежа):`,
-      `• Ръст във ВБ: ${answers.m3_uk_km || '-'} км (вярно: 27 689)`,
-      `• Изпреварват ВБ до 1900 г.: ${answers.m3_overtake.join(', ') || '-'}`,
-      `• Континент лидер: ${answers.m3_continent === 'na' ? 'Северна Америка' : '-'}`,
-      `• Писмен отговор (парадокс км vs %): ${answers.m3_paradox || '(няма отговор)'}`,
+      `• Ръст във ВБ: ${answers.m3_uk_km || '-'} км (${res.checks.m3_uk_km ? '1 т.' : '0 т.'})`,
+      `• Изпреварват ВБ: ${answers.m3_overtake.join(', ') || '-'} (${res.checks.m3_overtake ? '2 т.' : '0 т.'})`,
+      `• Континент лидер: ${res.checks.m3_continent ? 'Вярно (1 т.)' : 'Грешно (0 т.)'}`,
+      `• 3.4 Писмен отговор (${res.openScores.open_3_4}/2 т.): ${answers.m3_paradox || '(няма отговор)'}`,
       `----------------------------------------`,
       `МОДУЛ 4 (Население 1800–1850 г.):`,
-      `• Ръст на относителния дял: ${answers.m4_grow.join(', ') || '-'} | Най-голям спад: ${answers.m4_drop === 'fr' ? 'Франция' : '-'}`,
-      `• Писмен отговор (сравнение ВБ и Русия): ${answers.m4_compare || '(няма отговор)'}`,
-      `• Собствен въпрос 1: ${answers.m4_q1 || '(няма отговор)'}`,
-      `• Собствен въпрос 2: ${answers.m4_q2 || '(няма отговор)'}`,
+      `• Ръст на дела: ${answers.m4_grow.join(', ') || '-'} (${res.checks.m4_grow ? '2 т.' : '0 т.'}) | Спад: ${res.checks.m4_drop ? 'Вярно (1 т.)' : 'Грешно (0 т.)'}`,
+      `• 4.3 Писмен отговор (${res.openScores.open_4_3}/2 т.): ${answers.m4_compare || '(няма отговор)'}`,
+      `• 4.4 Собствени въпроси (${res.openScores.open_4_4}/1 т.): 1) ${answers.m4_q1 || '-'} | 2) ${answers.m4_q2 || '-'}`,
     ].join('\n');
   };
 
@@ -215,10 +304,11 @@ export default function App() {
     { title: '2. Чугун', icon: Factory },
     { title: '3. ЖП мрежа', icon: Train },
     { title: '4. Население', icon: Users },
-    { title: 'Преглед', icon: Award },
+    { title: 'Оценка', icon: Award },
   ];
 
   const activeSteam = STEAM_DATA.find((d) => d.year === selectedYear) || STEAM_DATA[4];
+  const evaluation = evaluateFullTest();
 
   const OptionButton = ({ active, onClick, children }) => (
     <button
@@ -349,19 +439,22 @@ export default function App() {
 
             <div className="bg-amber-50/90 rounded-2xl p-5 border border-amber-200 space-y-3">
               <h3 className="font-bold text-amber-950 text-base">
-                Алгоритъм за анализ на статистически данни
+                Алгоритъм за анализ и скала за оценяване (24 точки)
               </h3>
-              <ol className="space-y-2.5 text-sm text-amber-900 list-decimal pl-4">
+              <ol className="space-y-2 text-sm text-amber-900 list-decimal pl-4">
                 <li>
-                  <strong>Паспорт на данните:</strong> Установете базовата година/период, пространствения обхват и мерните единици (абсолютни числа или проценти).
+                  <strong>Паспорт на данните:</strong> Период, пространствен обхват и мерни единици.
                 </li>
                 <li>
-                  <strong>Коментар на динамиката:</strong> Проследете еволюцията (ръст, застой или спад), темповете и съотношението между държавите.
+                  <strong>Коментар на динамиката:</strong> Ръст, застой или спад и съотношение между държавите.
                 </li>
                 <li>
-                  <strong>Исторически изводи:</strong> Свържете числата със знанията си за епохата и определете общата тенденция.
+                  <strong>Исторически изводи:</strong> Свържете числата със знанията си за индустриализацията.
                 </li>
               </ol>
+              <div className="pt-2 border-t border-amber-200/80 text-xs text-amber-900 font-medium">
+                Скала: 0–7 т. = Слаб (2) • 8–11 т. = Среден (3) • 12–15 т. = Добър (4) • 16–19 т. = Мн. добър (5) • 20–24 т. = Отличен (6)
+              </div>
             </div>
           </div>
         )}
@@ -429,7 +522,7 @@ export default function App() {
 
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-slate-800">
-                  1. Какъв е хронологичният обхват на диаграмата?
+                  1. Какъв е хронологичният обхват на диаграмата? (1 т.)
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {[
@@ -450,7 +543,7 @@ export default function App() {
 
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-slate-800">
-                  2. Как са представени данните в графиката?
+                  2. Как са представени данните в графиката? (1 т.)
                 </label>
                 <div className="grid grid-cols-1 gap-2">
                   {[
@@ -471,7 +564,7 @@ export default function App() {
 
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-slate-800">
-                  3. Коя държава има категорично превъзходство до 60-те години на XIX в.?
+                  3. Коя държава има категорично превъзходство до 60-те години на XIX в.? (1 т.)
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
@@ -493,7 +586,7 @@ export default function App() {
 
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-slate-800">
-                  4. Коя държава бележи най-рязък скок след 1870 г. (почти догонвайки лидера)?
+                  4. Коя държава бележи най-рязък скок след 1870 г. (почти догонвайки лидера)? (1 т.)
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
@@ -516,11 +609,11 @@ export default function App() {
               <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-200/80 space-y-2">
                 <label className="block text-sm font-semibold text-slate-900 flex items-center gap-1.5">
                   <PenLine className="w-4 h-4 text-blue-600 shrink-0" />
-                  5. Писмен анализ: Защо Русия бележи сравнително нисък ръст при парната енергия през целия период?
+                  5. Писмен анализ (2 т.): Защо Русия бележи сравнително нисък ръст при парната енергия през целия период?
                 </label>
                 <textarea
                   rows={4}
-                  placeholder="Напишете своя отговор тук (посочете поне 2 исторически причини – социален строй, работна ръка, пазар)..."
+                  placeholder="Напишете своя отговор тук (посочете поне 2 исторически причини)..."
                   value={answers.m1_russia}
                   onChange={(e) => updateField('m1_russia', e.target.value)}
                   className="w-full p-3 rounded-xl border border-blue-300 bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
@@ -572,7 +665,7 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <Calculator className="w-5 h-5 text-blue-600" />
                 <h3 className="font-bold text-slate-900">
-                  1. Изчислете абсолютния ръст (1850 г. минус 1830 г.)
+                  1. Изчислете абсолютния ръст (1850 г. минус 1830 г.) (4 × 1 т.)
                 </h3>
               </div>
 
@@ -582,37 +675,26 @@ export default function App() {
                   { key: 'm2_de', label: 'Германия (210 − 120)', target: 90 },
                   { key: 'm2_fr', label: 'Франция (405 − 225)', target: 180 },
                   { key: 'm2_us', label: 'САЩ (565 − 180)', target: 385 },
-                ].map((item) => {
-                  const val = answers[item.key];
-                  const isCorrect = val !== '' && Number(val) === item.target;
-                  return (
-                    <div key={item.key} className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        {item.label}
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          placeholder="хил. т"
-                          value={val}
-                          onChange={(e) => updateField(item.key, e.target.value)}
-                          className={`w-full px-3 py-2 rounded-lg border text-sm font-mono outline-none ${
-                            isCorrect
-                              ? 'border-emerald-500 bg-emerald-50 text-emerald-900'
-                              : 'border-slate-300 bg-white'
-                          }`}
-                        />
-                        {isCorrect && <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />}
-                      </div>
-                    </div>
-                  );
-                })}
+                ].map((item) => (
+                  <div key={item.key} className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      {item.label}
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="хил. т"
+                      value={answers[item.key]}
+                      onChange={(e) => updateField(item.key, e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-mono outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                ))}
               </div>
 
               <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-200/80 space-y-2">
                 <label className="block text-sm font-semibold text-slate-900 flex items-center gap-1.5">
                   <PenLine className="w-4 h-4 text-blue-600 shrink-0" />
-                  2. Писмен анализ: Установете причинно-следствената връзка между използването на парната машина (Задача 1) и производството на чугун (Задача 2):
+                  2. Писмен анализ (2 т.): Установете причинно-следствената връзка между използването на парната машина (Задача 1) и производството на чугун (Задача 2):
                 </label>
                 <textarea
                   rows={4}
@@ -711,7 +793,7 @@ export default function App() {
             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-5">
               <div>
                 <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                  1. С колко километра нараства жп мрежата на Великобритания от 1840 до 1900 г. (30 079 − 2 390)?
+                  1. С колко километра нараства жп мрежата на Великобритания от 1840 до 1900 г. (30 079 − 2 390)? (1 т.)
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {['22 670', '27 689', '32 469'].map((val) => (
@@ -728,7 +810,7 @@ export default function App() {
 
               <div>
                 <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                  2. Кои 4 европейски държави изпреварват Великобритания по дължина на жп линиите до 1900 г.? (Изберете 4)
+                  2. Кои 4 европейски държави изпреварват Великобритания по дължина на жп линиите до 1900 г.? (2 т.)
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {['Германия', 'Русия', 'Франция', 'Австрия', 'Италия', 'Швеция'].map((c) => (
@@ -745,7 +827,7 @@ export default function App() {
 
               <div>
                 <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                  3. Кой континент държи първенството в световната жп мрежа през целия период (Таблица 2)?
+                  3. Кой континент държи първенството в световната жп мрежа през целия период (Таблица 2)? (1 т.)
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {[
@@ -767,7 +849,7 @@ export default function App() {
               <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-200/80 space-y-2">
                 <label className="block text-sm font-semibold text-slate-900 flex items-center gap-1.5">
                   <PenLine className="w-4 h-4 text-blue-600 shrink-0" />
-                  4. Писмено сравнение: В Таблица 1 жп линиите на Великобритания растат над 12 пъти, но в Таблица 2 делът ѝ пада от 27% на 4%. Изяснете причините за това:
+                  4. Писмено сравнение (2 т.): В Таблица 1 жп линиите на Великобритания растат над 12 пъти, но в Таблица 2 делът ѝ пада от 27% на 4%. Изяснете причините за това:
                 </label>
                 <textarea
                   rows={4}
@@ -826,7 +908,7 @@ export default function App() {
             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-5">
               <div>
                 <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                  1. При кои ДВЕ държави нараства относителният дял (%) от населението на Европа?
+                  1. При кои ДВЕ държави нараства относителният дял (%) от населението на Европа? (2 т.)
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {['Британски о-ви', 'Русия', 'Франция', 'Германия'].map((c) => (
@@ -843,7 +925,7 @@ export default function App() {
 
               <div>
                 <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                  2. Коя държава бележи най-голям спад в относителния си дял (от 15% на 13,6%)?
+                  2. Коя държава бележи най-голям спад в относителния си дял (от 15% на 13,6%)? (1 т.)
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
@@ -865,7 +947,7 @@ export default function App() {
               <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-200/80 space-y-2">
                 <label className="block text-sm font-semibold text-slate-900 flex items-center gap-1.5">
                   <PenLine className="w-4 h-4 text-blue-600 shrink-0" />
-                  3. Писмен анализ: Еднакви ли са причините за ръста на населението във Великобритания и в Русия от гледна точка на индустриализацията? Обосновете се:
+                  3. Писмен анализ (2 т.): Еднакви ли са причините за ръста на населението във Великобритания и в Русия от гледна точка на индустриализацията? Обосновете се:
                 </label>
                 <textarea
                   rows={4}
@@ -879,7 +961,7 @@ export default function App() {
               <div className="space-y-2 pt-2 border-t border-slate-100">
                 <label className="block text-sm font-semibold text-slate-800 flex items-center gap-1.5">
                   <HelpCircle className="w-4 h-4 text-blue-600 shrink-0" />
-                  4. Съставете самостоятелно два опорни въпроса към таблицата:
+                  4. Съставете самостоятелно два опорни въпроса към таблицата (1 т.):
                 </label>
                 <input
                   type="text"
@@ -900,15 +982,15 @@ export default function App() {
           </div>
         )}
 
-        {/* STEP 5: SUMMARY & EXPORT */}
+        {/* STEP 5: AUTOMATIC GRADING & EXPORT */}
         {step === 5 && (
           <div className="space-y-4">
             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">Предаване и самопроверка</h2>
+                  <h2 className="text-lg font-bold text-slate-900">Предаване и автоматична оценка</h2>
                   <p className="text-xs text-slate-500">
-                    Ученик: {answers.studentName || 'Непопълнено име'} ({answers.studentClass})
+                    Ученик: {answers.studentName || 'Непопълнено име'} ({answers.studentClass}, № {answers.studentNum || '-'})
                   </p>
                 </div>
                 <Award className="w-8 h-8 text-amber-500" />
@@ -917,46 +999,107 @@ export default function App() {
               {!submitted ? (
                 <button
                   onClick={() => setSubmitted(true)}
-                  className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow transition flex items-center justify-center gap-2"
+                  className="w-full py-4 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2 text-base"
                 >
                   <CheckCircle2 className="w-5 h-5" />
-                  Провери и оцени моите отговори
+                  Предай работния лист и виж оценката си
                 </button>
               ) : (
                 <div className="space-y-4">
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between">
-                    <div>
-                      <div className="text-xs font-bold uppercase text-emerald-700">
-                        Резултат от затворените задачи
-                      </div>
-                      <div className="text-2xl font-extrabold text-emerald-900">
-                        {calculateAutoScore()} / 15 точки
-                      </div>
-                      <div className="text-xs text-emerald-700 mt-0.5">
-                        + до 5 точки от учителя за писмените анализи (общо 20 т.)
-                      </div>
+                  {/* Final Grade Card */}
+                  <div className={`border-2 rounded-2xl p-5 text-center space-y-1 ${evaluation.badgeColor}`}>
+                    <div className="text-xs font-bold uppercase tracking-wider opacity-80">
+                      Крайна оценка от автоматичната проверка
+                    </div>
+                    <div className="text-3xl sm:text-4xl font-black">
+                      {evaluation.label} ({evaluation.roundedGrade})
+                    </div>
+                    <div className="text-sm font-bold">
+                      Точна оценка: {evaluation.exactGrade} • Точки: {evaluation.totalPts} от {evaluation.maxPts} т.
+                    </div>
+                    <div className="text-xs opacity-85 pt-1">
+                      Затворени задачи: {evaluation.closedPts} / 15 т. • Писмени анализи: {evaluation.openPts} / 9 т.
                     </div>
                   </div>
 
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-3 text-xs sm:text-sm">
-                    <h3 className="font-bold text-slate-900">
-                      Еталонни насоки за проверка на писмените отговори:
+                  {/* Detailed Breakdown */}
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2.5 text-xs sm:text-sm">
+                    <h3 className="font-bold text-slate-900 mb-2">Детайлен отчет по модули:</h3>
+
+                    <div className="flex items-center justify-between py-1 border-b border-slate-200/70">
+                      <span>Модул 1 (Затворени 1.1–1.4)</span>
+                      <span className="font-mono font-bold">
+                        {(evaluation.checks.m1_period ? 1 : 0) +
+                          (evaluation.checks.m1_unit ? 1 : 0) +
+                          (evaluation.checks.m1_leader ? 1 : 0) +
+                          (evaluation.checks.m1_jump ? 1 : 0)}{' '}
+                        / 4 т.
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-1 border-b border-slate-200/70">
+                      <span>Модул 1 (Писмен анализ 1.5 – Русия)</span>
+                      <span className="font-mono font-bold">{evaluation.openScores.open_1_5} / 2 т.</span>
+                    </div>
+
+                    <div className="flex items-center justify-between py-1 border-b border-slate-200/70">
+                      <span>Модул 2 (Изчисления чугун 2.1)</span>
+                      <span className="font-mono font-bold">
+                        {(evaluation.checks.m2_uk ? 1 : 0) +
+                          (evaluation.checks.m2_de ? 1 : 0) +
+                          (evaluation.checks.m2_fr ? 1 : 0) +
+                          (evaluation.checks.m2_us ? 1 : 0)}{' '}
+                        / 4 т.
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-1 border-b border-slate-200/70">
+                      <span>Модул 2 (Писмен анализ 2.2 – Връзка)</span>
+                      <span className="font-mono font-bold">{evaluation.openScores.open_2_2} / 2 т.</span>
+                    </div>
+
+                    <div className="flex items-center justify-between py-1 border-b border-slate-200/70">
+                      <span>Модул 3 (Затворени 3.1–3.3)</span>
+                      <span className="font-mono font-bold">
+                        {(evaluation.checks.m3_uk_km ? 1 : 0) +
+                          (evaluation.checks.m3_overtake ? 2 : 0) +
+                          (evaluation.checks.m3_continent ? 1 : 0)}{' '}
+                        / 4 т.
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-1 border-b border-slate-200/70">
+                      <span>Модул 3 (Писмен анализ 3.4 – Парадокс)</span>
+                      <span className="font-mono font-bold">{evaluation.openScores.open_3_4} / 2 т.</span>
+                    </div>
+
+                    <div className="flex items-center justify-between py-1 border-b border-slate-200/70">
+                      <span>Модул 4 (Затворени 4.1–4.2)</span>
+                      <span className="font-mono font-bold">
+                        {(evaluation.checks.m4_grow ? 2 : 0) + (evaluation.checks.m4_drop ? 1 : 0)} / 3 т.
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-1">
+                      <span>Модул 4 (Писмени 4.3 и 4.4)</span>
+                      <span className="font-mono font-bold">
+                        {evaluation.openScores.open_4_3 + evaluation.openScores.open_4_4} / 3 т.
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Model Answers for Self-Check */}
+                  <div className="bg-blue-50/60 rounded-xl p-4 border border-blue-200 space-y-2.5 text-xs sm:text-sm">
+                    <h3 className="font-bold text-blue-950">
+                      Еталонни отговори за проверка на грешките:
                     </h3>
                     <div>
-                      <strong className="text-blue-800">• 1.5 Изоставане на Русия:</strong>{' '}
-                      Късна отмяна на крепостното право (1861 г.), липса на свободна работна ръка, слаб вътрешен пазар и аграрен характер на икономиката.
+                      <strong>• 1.5 Русия:</strong> Късна отмяна на крепостното право (1861 г.), липса на свободна работна ръка и аграрен характер на икономиката.
                     </div>
                     <div>
-                      <strong className="text-blue-800">• 2.2 Връзка парна машина – чугун:</strong>{' '}
-                      Парните машини се изработват от чугун/желязо и задвижват мините и пещите; същевременно бумът на жп линиите изисква огромни количества метал.
+                      <strong>• 2.2 Парна машина и чугун:</strong> Парните машини се изработват от чугун/желязо и задвижват мините; жп строителството изисква огромни количества метал.
                     </div>
                     <div>
-                      <strong className="text-blue-800">• 3.4 Парадоксът на Великобритания:</strong>{' '}
-                      Като малка островна държава тя бързо насища територията си с линии, докато континентални гиганти (САЩ, Русия, Германия) строят хиляди километри магистрали и променят световния дял.
+                      <strong>• 3.4 Великобритания (км vs %):</strong> Малка островна територия, която бързо се насища, докато континентални държави (САЩ, Русия, Германия) строят хиляди км линии.
                     </div>
                     <div>
-                      <strong className="text-blue-800">• 4.3 Население ВБ срещу Русия:</strong>{' '}
-                      Във Великобритания ръстът е следствие от индустриализацията, урбанизацията и по-ниската смъртност; в Русия – от високата раждаемост в традиционното аграрно общество.
+                      <strong>• 4.3 Население:</strong> Във Великобритания ръстът е от индустриализацията и по-ниската смъртност; в Русия – от високата раждаемост в традиционното аграрно общество.
                     </div>
                   </div>
 
@@ -967,12 +1110,12 @@ export default function App() {
                     {copied ? (
                       <>
                         <Check className="w-5 h-5 text-emerald-400" />
-                        Отчетът е копиран! Поставете го в Classroom / чата
+                        Резултатът и оценката са копирани!
                       </>
                     ) : (
                       <>
                         <Copy className="w-5 h-5" />
-                        Копирай отчет за учителя
+                        Копирай оценката и отговорите за учителя
                       </>
                     )}
                   </button>
