@@ -75,18 +75,22 @@ const INITIAL_STATE = {
   m1_unit: '',
   m1_leader: '',
   m1_jump: '',
+  m1_russia_choice: '',
   m1_russia: '',
   m2_uk: '',
   m2_de: '',
   m2_fr: '',
   m2_us: '',
+  m2_connection_choice: '',
   m2_connection: '',
   m3_uk_km: '',
   m3_overtake: [],
+  m3_paradox_choice: '',
   m3_paradox: '',
   m3_continent: '',
   m4_grow: [],
   m4_drop: '',
+  m4_compare_choice: '',
   m4_compare: '',
   m4_q1: '',
   m4_q2: '',
@@ -100,7 +104,7 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [answers, setAnswers] = useState(() => {
     try {
-      const saved = localStorage.getItem('history_9grade_worksheet_v1');
+      const saved = localStorage.getItem('history_9grade_worksheet_v2');
       return saved ? { ...INITIAL_STATE, ...JSON.parse(saved) } : INITIAL_STATE;
     } catch {
       return INITIAL_STATE;
@@ -109,7 +113,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('history_9grade_worksheet_v1', JSON.stringify(answers));
+      localStorage.setItem('history_9grade_worksheet_v2', JSON.stringify(answers));
     } catch {
       // ignore storage errors
     }
@@ -134,7 +138,7 @@ export default function App() {
       setAnswers(INITIAL_STATE);
       setSubmitted(false);
       setStep(0);
-      localStorage.removeItem('history_9grade_worksheet_v1');
+      localStorage.removeItem('history_9grade_worksheet_v2');
     }
   };
 
@@ -144,11 +148,13 @@ export default function App() {
     if (answers.m1_unit === 'abs_hp') pts += 1;
     if (answers.m1_leader === 'uk') pts += 1;
     if (answers.m1_jump === 'de') pts += 1;
+    if (answers.m1_russia_choice === 'serfdom') pts += 1;
 
     if (Number(answers.m2_uk) === 1570) pts += 1;
     if (Number(answers.m2_de) === 90) pts += 1;
     if (Number(answers.m2_fr) === 180) pts += 1;
     if (Number(answers.m2_us) === 385) pts += 1;
+    if (answers.m2_connection_choice === 'mutual') pts += 1;
 
     const cleanKm = String(answers.m3_uk_km).replace(/\s+/g, '');
     if (cleanKm === '27689') pts += 1;
@@ -160,6 +166,7 @@ export default function App() {
     if (hasAllOvertake) pts += 2;
 
     if (answers.m3_continent === 'na') pts += 1;
+    if (answers.m3_paradox_choice === 'island_world') pts += 1;
 
     const hasGrow =
       answers.m4_grow.length === 2 &&
@@ -168,8 +175,9 @@ export default function App() {
     if (hasGrow) pts += 2;
 
     if (answers.m4_drop === 'fr') pts += 1;
+    if (answers.m4_compare_choice === 'diff_causes') pts += 1;
 
-    return pts;
+    return pts; // Max 19 auto-graded points
   };
 
   const generateReportText = () => {
@@ -177,28 +185,28 @@ export default function App() {
     return [
       `РАБОТЕН ЛИСТ: Анализ на статистически данни в историята (9. клас)`,
       `Ученик: ${answers.studentName || 'Непопълнено'} | Клас: ${answers.studentClass} | №: ${answers.studentNum || '-'}`,
-      `Автоматично проверени задачи: ${autoPts} / 15 т.`,
+      `Резултат от затворените задачи: ${autoPts} / 19 т.`,
       `----------------------------------------`,
       `МОДУЛ 1 (Парни машини):`,
       `• Период: ${answers.m1_period === '1840-1888' ? '1840–1888 г. (Вярно)' : 'Неточно'} | Единица: ${answers.m1_unit === 'abs_hp' ? 'Абсолютни числа (хил. к.с.) (Вярно)' : 'Неточно'}`,
       `• Лидер до 60-те г.: ${answers.m1_leader === 'uk' ? 'Великобритания' : '-'} | Скок след 1870 г.: ${answers.m1_jump === 'de' ? 'Германия' : '-'}`,
-      `• Причини за изоставането на Русия: ${answers.m1_russia || '(няма отговор)'}`,
+      `• Изоставане на Русия (избор): ${answers.m1_russia_choice === 'serfdom' ? 'Вярно' : 'Неточно'} | Коментар: ${answers.m1_russia || '(няма)'}`,
       `----------------------------------------`,
       `МОДУЛ 2 (Производство на чугун):`,
       `• Изчисления (хил. т): ВБ=${answers.m2_uk || '-'} (1570), Гер=${answers.m2_de || '-'} (90), Фр=${answers.m2_fr || '-'} (180), САЩ=${answers.m2_us || '-'} (385)`,
-      `• Връзка между парни машини, чугун и жп линии: ${answers.m2_connection || '(няма отговор)'}`,
+      `• Причинно-следствена връзка (избор): ${answers.m2_connection_choice === 'mutual' ? 'Вярно' : 'Неточно'} | Коментар: ${answers.m2_connection || '(няма)'}`,
       `----------------------------------------`,
       `МОДУЛ 3 (Железопътна мрежа):`,
       `• Ръст във ВБ: ${answers.m3_uk_km || '-'} км (вярно: 27 689)`,
       `• Изпреварват ВБ до 1900 г.: ${answers.m3_overtake.join(', ') || '-'}`,
-      `• Обяснение на парадокса (км vs %): ${answers.m3_paradox || '(няма отговор)'}`,
       `• Континент лидер: ${answers.m3_continent === 'na' ? 'Северна Америка' : '-'}`,
+      `• Парадокс км vs % (избор): ${answers.m3_paradox_choice === 'island_world' ? 'Вярно' : 'Неточно'} | Коментар: ${answers.m3_paradox || '(няма)'}`,
       `----------------------------------------`,
       `МОДУЛ 4 (Население 1800–1850 г.):`,
       `• Ръст на относителния дял: ${answers.m4_grow.join(', ') || '-'} | Най-голям спад: ${answers.m4_drop === 'fr' ? 'Франция' : '-'}`,
-      `• Сравнение Британски о-ви и Русия: ${answers.m4_compare || '(няма отговор)'}`,
-      `• Собствен въпрос 1: ${answers.m4_q1 || '(няма отговор)'}`,
-      `• Собствен въпрос 2: ${answers.m4_q2 || '(няма отговор)'}`,
+      `• Сравнение ВБ и Русия (избор): ${answers.m4_compare_choice === 'diff_causes' ? 'Вярно' : 'Неточно'} | Коментар: ${answers.m4_compare || '(няма)'}`,
+      `• Собствен въпрос 1: ${answers.m4_q1 || '(няма)'}`,
+      `• Собствен въпрос 2: ${answers.m4_q2 || '(няма)'}`,
     ].join('\n');
   };
 
@@ -218,6 +226,21 @@ export default function App() {
   ];
 
   const activeSteam = STEAM_DATA.find((d) => d.year === selectedYear) || STEAM_DATA[4];
+
+  const OptionButton = ({ active, onClick, children }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`p-3 rounded-xl border text-left text-xs sm:text-sm font-medium transition flex items-center justify-between gap-2 ${
+        active
+          ? 'border-blue-600 bg-blue-50 text-blue-900 shadow-xs ring-1 ring-blue-600'
+          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+      }`}
+    >
+      <span>{children}</span>
+      {active && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
+    </button>
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-24 font-sans selection:bg-blue-100">
@@ -265,6 +288,7 @@ export default function App() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 pt-5 space-y-5">
+        {/* STEP 0: INTRO & STUDENT INFO */}
         {step === 0 && (
           <div className="space-y-4">
             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
@@ -272,9 +296,9 @@ export default function App() {
                 <Sparkles className="w-5 h-5 text-blue-600" />
                 Данни за ученика
               </h2>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                     Име и фамилия
                   </label>
                   <input
@@ -285,36 +309,47 @@ export default function App() {
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-base"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">
-                      Клас / Паралелка
-                    </label>
-                    <select
-                      value={answers.studentClass}
-                      onChange={(e) => updateField('studentClass', e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 outline-none text-base"
-                    >
-                      <option value="9а">9. а клас</option>
-                      <option value="9б">9. б клас</option>
-                      <option value="9в">9. в клас</option>
-                      <option value="9г">9. г клас</option>
-                    </select>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                    Изберете клас / паралелка
+                  </label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { id: '9а', label: '9. а' },
+                      { id: '9б', label: '9. б' },
+                      { id: '9в', label: '9. в' },
+                      { id: '9г', label: '9. г' },
+                    ].map((cls) => (
+                      <button
+                        key={cls.id}
+                        type="button"
+                        onClick={() => updateField('studentClass', cls.id)}
+                        className={`py-2.5 px-3 rounded-xl border text-sm font-bold transition text-center ${
+                          answers.studentClass === cls.id
+                            ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
+                            : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {cls.label}
+                      </button>
+                    ))}
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">
-                      Номер в клас
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="35"
-                      placeholder="№"
-                      value={answers.studentNum}
-                      onChange={(e) => updateField('studentNum', e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-base"
-                    />
-                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                    Номер в клас
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="35"
+                    placeholder="Въведете вашия № в дневника"
+                    value={answers.studentNum}
+                    onChange={(e) => updateField('studentNum', e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-base"
+                  />
                 </div>
               </div>
             </div>
@@ -338,6 +373,7 @@ export default function App() {
           </div>
         )}
 
+        {/* STEP 1: STEAM ENGINE */}
         {step === 1 && (
           <div className="space-y-4">
             <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-4">
@@ -395,29 +431,26 @@ export default function App() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-5">
               <h3 className="font-bold text-slate-900">Въпроси за анализ</h3>
 
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-slate-800">
                   1. Какъв е хронологичният обхват на диаграмата?
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {[
                     { id: '1800-1850', text: '1800 – 1850 г.' },
                     { id: '1840-1888', text: '1840 – 1888 г.' },
+                    { id: '1840-1900', text: '1840 – 1900 г.' },
                   ].map((opt) => (
-                    <button
+                    <OptionButton
                       key={opt.id}
+                      active={answers.m1_period === opt.id}
                       onClick={() => updateField('m1_period', opt.id)}
-                      className={`p-3 rounded-xl border text-left text-sm font-medium transition ${
-                        answers.m1_period === opt.id
-                          ? 'border-blue-600 bg-blue-50 text-blue-900'
-                          : 'border-slate-200 hover:bg-slate-50'
-                      }`}
                     >
                       {opt.text}
-                    </button>
+                    </OptionButton>
                   ))}
                 </div>
               </div>
@@ -430,74 +463,95 @@ export default function App() {
                   {[
                     { id: 'abs_hp', text: 'В абсолютни числа (хиляди конски сили)' },
                     { id: 'pct_world', text: 'В проценти от световното производство (%)' },
+                    { id: 'tons', text: 'В хиляди тонове произведена продукция' },
                   ].map((opt) => (
-                    <button
+                    <OptionButton
                       key={opt.id}
+                      active={answers.m1_unit === opt.id}
                       onClick={() => updateField('m1_unit', opt.id)}
-                      className={`p-3 rounded-xl border text-left text-sm font-medium transition ${
-                        answers.m1_unit === opt.id
-                          ? 'border-blue-600 bg-blue-50 text-blue-900'
-                          : 'border-slate-200 hover:bg-slate-50'
-                      }`}
                     >
                       {opt.text}
-                    </button>
+                    </OptionButton>
                   ))}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                    3. Лидер до 60-те г. на XIX в.:
-                  </label>
-                  <select
-                    value={answers.m1_leader}
-                    onChange={(e) => updateField('m1_leader', e.target.value)}
-                    className="w-full p-3 rounded-xl border border-slate-300 bg-white text-sm"
-                  >
-                    <option value="">-- Изберете държава --</option>
-                    <option value="uk">Великобритания</option>
-                    <option value="fr">Франция</option>
-                    <option value="de">Германия</option>
-                    <option value="ru">Русия</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                    4. Най-голям скок след 1870 г.:
-                  </label>
-                  <select
-                    value={answers.m1_jump}
-                    onChange={(e) => updateField('m1_jump', e.target.value)}
-                    className="w-full p-3 rounded-xl border border-slate-300 bg-white text-sm"
-                  >
-                    <option value="">-- Изберете държава --</option>
-                    <option value="uk">Великобритания</option>
-                    <option value="fr">Франция</option>
-                    <option value="de">Германия</option>
-                    <option value="ru">Русия</option>
-                  </select>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-800">
+                  3. Коя държава има категорично превъзходство до 60-те години на XIX в.?
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'uk', text: 'Великобритания' },
+                    { id: 'fr', text: 'Франция' },
+                    { id: 'de', text: 'Германия' },
+                    { id: 'ru', text: 'Русия' },
+                  ].map((opt) => (
+                    <OptionButton
+                      key={opt.id}
+                      active={answers.m1_leader === opt.id}
+                      onClick={() => updateField('m1_leader', opt.id)}
+                    >
+                      {opt.text}
+                    </OptionButton>
+                  ))}
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                  5. Защо Русия бележи нисък ръст при парната енергия през целия период?
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-800">
+                  4. Коя държава бележи най-рязък скок след 1870 г. (почти догонвайки лидера)?
                 </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'uk', text: 'Великобритания' },
+                    { id: 'fr', text: 'Франция' },
+                    { id: 'de', text: 'Германия' },
+                    { id: 'ru', text: 'Русия' },
+                  ].map((opt) => (
+                    <OptionButton
+                      key={opt.id}
+                      active={answers.m1_jump === opt.id}
+                      onClick={() => updateField('m1_jump', opt.id)}
+                    >
+                      {opt.text}
+                    </OptionButton>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-800">
+                  5. Коя е основната причина Русия да изостава в прилагането на парната енергия?
+                </label>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { id: 'resources', text: 'Липса на полезни изкопаеми и суровини в страната' },
+                    { id: 'serfdom', text: 'Запазването на крепостното право до 1861 г. и аграрният характер на икономиката' },
+                    { id: 'population', text: 'Прекалено малобройно население и липса на територия' },
+                  ].map((opt) => (
+                    <OptionButton
+                      key={opt.id}
+                      active={answers.m1_russia_choice === opt.id}
+                      onClick={() => updateField('m1_russia_choice', opt.id)}
+                    >
+                      {opt.text}
+                    </OptionButton>
+                  ))}
+                </div>
                 <textarea
-                  rows={3}
-                  placeholder="Посочете поне 2 исторически причини (напр. социален строй, икономика)..."
+                  rows={2}
+                  placeholder="Допълнете със свои думи (по желание)..."
                   value={answers.m1_russia}
                   onChange={(e) => updateField('m1_russia', e.target.value)}
-                  className="w-full p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  className="w-full mt-2 p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                 />
               </div>
             </div>
           </div>
         )}
 
+        {/* STEP 2: PIG IRON */}
         {step === 2 && (
           <div className="space-y-4">
             <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3">
@@ -539,7 +593,7 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <Calculator className="w-5 h-5 text-blue-600" />
                 <h3 className="font-bold text-slate-900">
-                  Изчислете абсолютния ръст (1850 г. минус 1830 г.)
+                  1. Изчислете абсолютния ръст (1850 г. минус 1830 г.)
                 </h3>
               </div>
 
@@ -576,22 +630,38 @@ export default function App() {
                 })}
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                  Установете причинно-следствената връзка между използването на парната машина (Задача 1) и производството на чугун (Задача 2):
+              <div className="space-y-2 pt-2">
+                <label className="block text-sm font-semibold text-slate-800">
+                  2. Каква е причинно-следствената връзка между парните машини (Задача 1) и чугуна (Задача 2)?
                 </label>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { id: 'no_rel', text: 'Няма пряка връзка — двата отрасъла се развиват независимо' },
+                    { id: 'mutual', text: 'Парните машини се изработват от чугун/желязо и задвижват мините и пещите, а жп строителството увеличава търсенето на метал' },
+                    { id: 'replace', text: 'Чугунът напълно заменя парните машини в транспорта' },
+                  ].map((opt) => (
+                    <OptionButton
+                      key={opt.id}
+                      active={answers.m2_connection_choice === opt.id}
+                      onClick={() => updateField('m2_connection_choice', opt.id)}
+                    >
+                      {opt.text}
+                    </OptionButton>
+                  ))}
+                </div>
                 <textarea
-                  rows={3}
-                  placeholder="Обяснете как едното стимулира другото..."
+                  rows={2}
+                  placeholder="Допълнете анализа си (по желание)..."
                   value={answers.m2_connection}
                   onChange={(e) => updateField('m2_connection', e.target.value)}
-                  className="w-full p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  className="w-full mt-2 p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                 />
               </div>
             </div>
           </div>
         )}
 
+        {/* STEP 3: RAILWAYS */}
         {step === 3 && (
           <div className="space-y-4">
             <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3">
@@ -673,18 +743,22 @@ export default function App() {
               )}
             </div>
 
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1">
+                <label className="block text-sm font-semibold text-slate-800 mb-1.5">
                   1. С колко километра нараства жп мрежата на Великобритания от 1840 до 1900 г. (30 079 − 2 390)?
                 </label>
-                <input
-                  type="number"
-                  placeholder="Въведете число в км"
-                  value={answers.m3_uk_km}
-                  onChange={(e) => updateField('m3_uk_km', e.target.value)}
-                  className="w-full p-3 rounded-xl border border-slate-300 font-mono text-sm"
-                />
+                <div className="grid grid-cols-3 gap-2">
+                  {['22 670', '27 689', '32 469'].map((val) => (
+                    <OptionButton
+                      key={val}
+                      active={answers.m3_uk_km === val.replace(/\s+/g, '')}
+                      onClick={() => updateField('m3_uk_km', val.replace(/\s+/g, ''))}
+                    >
+                      {val} км
+                    </OptionButton>
+                  ))}
+                </div>
               </div>
 
               <div>
@@ -692,23 +766,15 @@ export default function App() {
                   2. Кои 4 европейски държави изпреварват Великобритания по дължина на жп линиите до 1900 г.? (Изберете 4)
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  {['Германия', 'Русия', 'Франция', 'Австрия', 'Италия', 'Швеция'].map((c) => {
-                    const active = answers.m3_overtake.includes(c);
-                    return (
-                      <button
-                        key={c}
-                        onClick={() => toggleMulti('m3_overtake', c)}
-                        className={`p-2.5 rounded-xl border text-left text-xs sm:text-sm font-medium transition flex items-center justify-between ${
-                          active
-                            ? 'border-blue-600 bg-blue-50 text-blue-900'
-                            : 'border-slate-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span>{c}</span>
-                        {active && <Check className="w-4 h-4 text-blue-600" />}
-                      </button>
-                    );
-                  })}
+                  {['Германия', 'Русия', 'Франция', 'Австрия', 'Италия', 'Швеция'].map((c) => (
+                    <OptionButton
+                      key={c}
+                      active={answers.m3_overtake.includes(c)}
+                      onClick={() => toggleMulti('m3_overtake', c)}
+                    >
+                      {c}
+                    </OptionButton>
+                  ))}
                 </div>
               </div>
 
@@ -716,34 +782,55 @@ export default function App() {
                 <label className="block text-sm font-semibold text-slate-800 mb-1.5">
                   3. Кой континент държи първенството в световната жп мрежа през целия период (Таблица 2)?
                 </label>
-                <select
-                  value={answers.m3_continent}
-                  onChange={(e) => updateField('m3_continent', e.target.value)}
-                  className="w-full p-3 rounded-xl border border-slate-300 bg-white text-sm"
-                >
-                  <option value="">-- Изберете континент --</option>
-                  <option value="eu">Европа (без Русия)</option>
-                  <option value="na">Северна Америка</option>
-                  <option value="as">Азия</option>
-                </select>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: 'eu', text: 'Европа (без Русия)' },
+                    { id: 'na', text: 'Северна Америка' },
+                    { id: 'as', text: 'Азия' },
+                  ].map((opt) => (
+                    <OptionButton
+                      key={opt.id}
+                      active={answers.m3_continent === opt.id}
+                      onClick={() => updateField('m3_continent', opt.id)}
+                    >
+                      {opt.text}
+                    </OptionButton>
+                  ))}
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                  4. Сравнение: В Таблица 1 жп линиите на Великобритания растат над 12 пъти, но в Таблица 2 делът ѝ пада от 27% на 4%. Защо?
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-800">
+                  4. В Таблица 1 жп линиите на Великобритания растат над 12 пъти, но в Таблица 2 делът ѝ пада от 27% на 4%. Защо?
                 </label>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { id: 'destroyed', text: 'Великобритания разрушава част от своите жп линии след 1880 г.' },
+                    { id: 'island_world', text: 'Като малка островна държава тя насища територията си, докато континентални държави строят хиляди километри линии и променят световния дял' },
+                    { id: 'error', text: 'Данните в двете таблици си противоречат заради грешка в измерването' },
+                  ].map((opt) => (
+                    <OptionButton
+                      key={opt.id}
+                      active={answers.m3_paradox_choice === opt.id}
+                      onClick={() => updateField('m3_paradox_choice', opt.id)}
+                    >
+                      {opt.text}
+                    </OptionButton>
+                  ))}
+                </div>
                 <textarea
-                  rows={3}
-                  placeholder="Помислете за площта на острова и строителството в останалия свят..."
+                  rows={2}
+                  placeholder="Допълнете обяснението си (по желание)..."
                   value={answers.m3_paradox}
                   onChange={(e) => updateField('m3_paradox', e.target.value)}
-                  className="w-full p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  className="w-full mt-2 p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                 />
               </div>
             </div>
           </div>
         )}
 
+        {/* STEP 4: POPULATION */}
         {step === 4 && (
           <div className="space-y-4">
             <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3">
@@ -785,29 +872,21 @@ export default function App() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-5">
               <div>
                 <label className="block text-sm font-semibold text-slate-800 mb-1.5">
                   1. При кои ДВЕ държави нараства относителният дял (%) от населението на Европа?
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  {['Британски о-ви', 'Русия', 'Франция', 'Германия'].map((c) => {
-                    const active = answers.m4_grow.includes(c);
-                    return (
-                      <button
-                        key={c}
-                        onClick={() => toggleMulti('m4_grow', c)}
-                        className={`p-2.5 rounded-xl border text-left text-xs sm:text-sm font-medium transition flex items-center justify-between ${
-                          active
-                            ? 'border-blue-600 bg-blue-50 text-blue-900'
-                            : 'border-slate-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span>{c}</span>
-                        {active && <Check className="w-4 h-4 text-blue-600" />}
-                      </button>
-                    );
-                  })}
+                  {['Британски о-ви', 'Русия', 'Франция', 'Германия'].map((c) => (
+                    <OptionButton
+                      key={c}
+                      active={answers.m4_grow.includes(c)}
+                      onClick={() => toggleMulti('m4_grow', c)}
+                    >
+                      {c}
+                    </OptionButton>
+                  ))}
                 </div>
               </div>
 
@@ -815,28 +894,47 @@ export default function App() {
                 <label className="block text-sm font-semibold text-slate-800 mb-1.5">
                   2. Коя държава бележи най-голям спад в относителния си дял (от 15% на 13,6%)?
                 </label>
-                <select
-                  value={answers.m4_drop}
-                  onChange={(e) => updateField('m4_drop', e.target.value)}
-                  className="w-full p-3 rounded-xl border border-slate-300 bg-white text-sm"
-                >
-                  <option value="">-- Изберете държава --</option>
-                  <option value="fr">Франция</option>
-                  <option value="at">Австрия</option>
-                  <option value="it">Италия</option>
-                </select>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'fr', text: 'Франция' },
+                    { id: 'at', text: 'Австрия' },
+                    { id: 'it', text: 'Италия' },
+                  ].map((opt) => (
+                    <OptionButton
+                      key={opt.id}
+                      active={answers.m4_drop === opt.id}
+                      onClick={() => updateField('m4_drop', opt.id)}
+                    >
+                      {opt.text}
+                    </OptionButton>
+                  ))}
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                  3. Еднакви ли са причините за ръста на населението във Великобритания и в Русия от гледна точка на индустриализацията?
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-800">
+                  3. Еднакви ли са причините за ръста на населението във Великобритания и в Русия?
                 </label>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { id: 'same_ind', text: 'Да — и в двете държави ръстът е резултат от бурна индустриализация' },
+                    { id: 'diff_causes', text: 'Не — във Великобритания се дължи на индустриализацията и спада на смъртността, а в Русия — на високата раждаемост в аграрното общество' },
+                  ].map((opt) => (
+                    <OptionButton
+                      key={opt.id}
+                      active={answers.m4_compare_choice === opt.id}
+                      onClick={() => updateField('m4_compare_choice', opt.id)}
+                    >
+                      {opt.text}
+                    </OptionButton>
+                  ))}
+                </div>
                 <textarea
-                  rows={3}
-                  placeholder="Сравнете индустриална Великобритания и аграрна Русия..."
+                  rows={2}
+                  placeholder="Допълнете коментара си (по желание)..."
                   value={answers.m4_compare}
                   onChange={(e) => updateField('m4_compare', e.target.value)}
-                  className="w-full p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  className="w-full mt-2 p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                 />
               </div>
 
@@ -864,6 +962,7 @@ export default function App() {
           </div>
         )}
 
+        {/* STEP 5: SUMMARY & EXPORT */}
         {step === 5 && (
           <div className="space-y-4">
             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
@@ -893,17 +992,17 @@ export default function App() {
                         Резултат от затворените задачи
                       </div>
                       <div className="text-2xl font-extrabold text-emerald-900">
-                        {calculateAutoScore()} / 15 точки
+                        {calculateAutoScore()} / 19 точки
                       </div>
                       <div className="text-xs text-emerald-700 mt-0.5">
-                        + до 5 точки от учителя за отворените анализи
+                        + допълнителни точки от учителя за формулираните въпроси
                       </div>
                     </div>
                   </div>
 
                   <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-3 text-xs sm:text-sm">
                     <h3 className="font-bold text-slate-900">
-                      Еталонни насоки за отворените въпроси:
+                      Еталонни насоки за анализите:
                     </h3>
                     <div>
                       <strong className="text-blue-800">• Изоставане на Русия (Модул 1):</strong>{' '}
